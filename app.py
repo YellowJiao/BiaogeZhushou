@@ -45,26 +45,38 @@ API_CHOICES = ['deepseek']  # 仅支持 DeepSeek API
 
 def call_deepseek_api(messages, api_key):
     """调用 DeepSeek-R1 API (需要替换为实际的 API 调用方式)"""
-    url = "https://api.deepseek.com/v1/chat/completions"  # 替换为 DeepSeek 的 API 端点
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"  # 或者其他认证方式
-    }
-
-    data = {
-        "messages": messages,
-        "model": "deepseek-chat",  # 替换为 DeepSeek 的模型名称
-        "temperature": 0.7
-    }
-
     try:
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()  # 检查 HTTP 状态码
-        return response.json()['choices'][0]['message']['content'] # 根据实际的 API 响应格式修改
-    except requests.exceptions.RequestException as e:
-        print(f"DeepSeek API Error: {e}")
-        raise
+        url = "https://api.deepseek.com/v1/chat/completions"  # 替换为 DeepSeek 的 API 端点
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"  # 或者其他认证方式
+        }
+
+        data = {
+            "model": "deepseek-chat",
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 2000
+        }
+
+        try:
+            response = requests.post(url, headers=headers, json=data, timeout=30)
+            response.raise_for_status()  # 检查HTTP状态码
+            response_json = response.json()
+            return response_json['choices'][0]['message']['content']
+        except requests.exceptions.Timeout:
+            app.logger.error('API请求超时')
+            raise Exception('API请求超时，请稍后重试')
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f'API请求错误: {str(e)}')
+            raise Exception(f'API请求失败: {str(e)}')
+        except (KeyError, ValueError, TypeError) as e:
+            app.logger.error(f'API响应解析错误: {str(e)}')
+            raise Exception('API响应格式错误')
+    except Exception as e:
+        app.logger.error(f'DeepSeek API调用错误: {str(e)}', exc_info=True)
+        raise Exception(f'API调用失败: {str(e)}')
 
 
 
