@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Excel数据处理助手</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2 { 
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .upload-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .file-preview {
+            margin-top: 20px;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        #chat-container { margin-top: 20px; }
+        #chat-log { 
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: scroll;
+            background: white;
+        }
+        .message {
+            margin: 8px 0;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+        .user-message {
+            background: #e3f2fd;
+            margin-left: 20px;
+        }
+        .ai-message {
+            background: #f1f8e9;
+            margin-right: 20px;
+        }
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+        }
+        #input-container {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        #user-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e1e4e8;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        #loading {
+            display: none;
+            margin: 10px 0;
+            color: #666;
+            text-align: center;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #csv-preview {
+            margin-top: 20px;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 15px;
+            max-height: 400px;
+            overflow: auto;
+            background: white;
+        }
+        #csv-preview table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        #csv-preview th, #csv-preview td {
+            border: 1px solid #e1e4e8;
+            padding: 8px;
+            text-align: left;
+        }
+        #csv-preview th {
+            background-color: #f6f8fa;
+            font-weight: 600;
+        }
+        #csv-preview tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .button {
+            padding: 8px 16px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .button:hover {
+            background-color: #1976D2;
+        }
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #download-link {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        #download-link:hover {
+            background-color: #388E3C;
+        }
+        .status {
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .status.success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status.error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <h1>Excel数据处理助手</h1>
+
+    <div class="container">
+        <div class="upload-section">
+            <input type="file" id="file-upload" accept=".xlsx,.xls">
+            <select id="api-choice" class="button">
+                <option value="deepseek">DeepSeek-R1</option>
+            </select>
+            <button id="upload-button" class="button">上传文件</button>
+        </div>
+        <div id="upload-status"></div>
+        <div id="file-preview" class="file-preview" style="display: none;">
+            <h3>文件预览</h3>
+            <div id="preview-content"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="chat-container">
+            <h2>对话</h2>
+            <div id="chat-log"></div>
+            <div id="input-container">
+                <input type="text" id="user-input" placeholder="请输入您的数据处理需求...">
+                <button id="send-button" class="button">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>处理结果预览</h2>
+        <div id="csv-preview">
+            <div id="csv-content"></div>
+        </div>
+        <div id="loading">
+            <div class="spinner"></div>
+            正在处理数据，请稍候...
+        </div>
+        <button id="process-button" class="button" disabled>处理数据</button>
+        <a id="download-link" style="display: none;">下载处理结果</a>
+    </div> <!-- 添加加载动画 -->
+
+    <script>
+        const uploadButton = document.getElementById('upload-button');
+        const fileUpload = document.getElementById('file-upload');
+        const uploadStatus = document.getElementById('upload-status');
+        const chatLog = document.getElementById('chat-log');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const processButton = document.getElementById('process-button');
+        const downloadLink = document.getElementById('download-link');
+        const apiChoiceSelect = document.getElementById('api-choice');
+        const loadingDiv = document.getElementById('loading');
+        const filePreview = document.getElementById('file-preview');
+        const previewContent = document.getElementById('preview-content');
+
+        let sessionId = null;
+        let apiChoice = 'deepseek';
+
+        uploadButton.addEventListener('click', async () => {
+            const file = fileUpload.files[0];
+            if (!file) {
+                showStatus('请选择一个Excel文件', 'error');
+                return;
+            }
+
+            if (!file.name.match(/\.(xlsx|xls)$/)) {
+                showStatus('请上传Excel文件（.xlsx或.xls格式）', 'error');
+                return;
+            }
+
+            apiChoice = apiChoiceSelect.value;
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('api', apiChoice);
+
+            showLoading(true);
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    showStatus(data.message, 'success');
+                    sessionId = data.session_id;
+                    processButton.disabled = false;
+                    
+                    // 显示文件预览
+                    if (data.preview) {
+                        filePreview.style.display = 'block';
+                        previewContent.innerHTML = formatPreview(data.preview);
+                    }
+                } else {
+                    showStatus(`上传失败：${data.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`上传出错：${error}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        sendButton.addEventListener('click', async () => {
+            const message = userInput.value.trim();
+            if (!message) {
+                showStatus('请输入处理需求', 'error');
+                return;
+            }
+            if (!sessionId) {
+                showStatus('请先上传文件', 'error');
+                return;
+            }
+
+            addMessageToChat('user', message);
+            userInput.value = '';
+            showLoading(true);
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ session_id: sessionId, message: message })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    addMessageToChat('ai', data.message);
+                    if (data.csv_data) {
+                        displayCSVPreview(data.csv_data);
+                        downloadLink.href = data.download_url;
+                        downloadLink.style.display = 'block';
+                    }
+                } else {
+                    addMessageToChat('error', `处理失败：${data.error}`);
+                }
+            } catch (error) {
+                addMessageToChat('error', `系统错误：${error}`);
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        processButton.addEventListener('click', async () => {
+            if (!sessionId) {
+                showStatus('请先上传文件', 'error');
+                return;
+            }
+
+            showLoading(true);
+            downloadLink.style.display = 'none';
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    downloadLink.href = url;
+                    downloadLink.download = 'processed_data.xlsx';
+                    downloadLink.style.display = 'block';
+                    showStatus('数据处理完成，请点击下载', 'success');
+                } else {
+                    const data = await response.json();
+                    showStatus(`处理失败：${data.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`系统错误：${error}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        function addMessageToChat(sender, message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = `${sender === 'user' ? '用户' : sender === 'ai' ? 'AI' : '系统'}: ${message}`;
+            chatLog.appendChild(messageDiv);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        function displayCSVPreview(csvData) {
+            const csvContent = document.getElementById('csv-content');
+            const rows = csvData.trim().split('\n');
+            const headers = rows[0].split(',');
+            
+            let tableHTML = '<table><thead><tr>';
+            headers.forEach(header => {
+                tableHTML += `<th>${header.trim()}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+            
+            for (let i = 1; i < Math.min(rows.length, 100); i++) {
+                const cells = rows[i].split(',');
+                tableHTML += '<tr>';
+                cells.forEach(cell => {
+                    tableHTML += `<td>${cell.trim()}</td>`;
+                });
+                tableHTML += '</tr>';
+            }
+            
+            if (rows.length > 100) {
+                tableHTML += '<tr><td colspan="' + headers.length + '" style="text-align: center;">显示前100行数据...</td></tr>';
+            }
+            
+            tableHTML += '</tbody></table>';
+            csvContent.innerHTML = tableHTML;
+        }
+
+        function formatPreview(preview) {
+            return `<pre>${preview}</pre>`;
+        }
+
+        function showLoading(show) {
+            loadingDiv.style.display = show ? 'block' : 'none';
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('upload-status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        // 按回车发送消息
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendButton.click();
+            }
+        });
+    </script>
+</body>
+</html>
