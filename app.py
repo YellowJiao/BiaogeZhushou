@@ -71,7 +71,17 @@ def call_deepseek_api(messages, api_key):
 @app.route('/upload', methods=['POST'])
 def upload_file():
     """处理文件上传，保存文件，并初始化会话"""
+    # 确保uploads目录存在
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        try:
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+            app.logger.info(f"Created uploads directory at {app.config['UPLOAD_FOLDER']}")
+        except Exception as e:
+            app.logger.error(f"Failed to create uploads directory: {str(e)}")
+            return jsonify({'error': '服务器配置错误，请联系管理员'}), 500
+
     if 'file' not in request.files:
+        app.logger.warning('No file part in the request')
         return jsonify({'error': '请选择要上传的文件'}), 400
 
     file = request.files['file']
@@ -147,15 +157,22 @@ def upload_file():
             app.logger.error(f'文件读取错误: {str(e)}')
             return jsonify({'error': f'文件读取失败: {str(e)}'}), 400
 
+    except PermissionError as e:
+        app.logger.error(f'文件权限错误: {str(e)}')
+        return jsonify({'error': '服务器文件权限错误，请联系管理员'}), 500
     except Exception as e:
-        app.logger.error(f'文件上传错误: {str(e)}')
-        return jsonify({'error': f'文件上传失败: {str(e)}'}), 500
+        app.logger.error(f'文件上传错误: {str(e)}', exc_info=True)
+        return jsonify({'error': '服务器内部错误，请稍后重试'}), 500
 
 @app.route('/chat', methods=['POST'])
 def chat():
     """处理用户消息，调用 AI API，返回结果"""
-    session_id = request.json.get('session_id')
-    user_message = request.json.get('message')
+    try:
+        session_id = request.json.get('session_id')
+        user_message = request.json.get('message')
+    except Exception as e:
+        app.logger.error(f'Invalid request format: {str(e)}', exc_info=True)
+        return jsonify({'error': '无效的请求格式'}), 400
 
     if not session_id or not user_message:
         return jsonify({'error': 'Missing session_id or message'}), 400
@@ -241,9 +258,12 @@ def chat():
         else:
             return jsonify({'message': ai_message}), 200
 
+    except FileNotFoundError as e:
+        app.logger.error(f'File not found error in chat: {str(e)}')
+        return jsonify({'error': '文件不存在，请重新上传'}), 404
     except Exception as e:
-        print(e)
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f'Chat processing error: {str(e)}', exc_info=True)
+        return jsonify({'error': '服务器内部错误，请稍后重试'}), 500
 
 @app.route('/download/<session_id>')
 def download_file(session_id):
